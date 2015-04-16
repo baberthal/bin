@@ -1,0 +1,8 @@
+#! /bin/zsh
+
+ONE=`sysctl -n vm.loadavg | awk '{print $2}'`
+TWO=`sysctl -n vm.loadavg | awk '{print $3}'`
+THREE=`sysctl -n vm.loadavg | awk '{print $4}'`
+
+
+echo -e "\u2623 ${ONE}/${TWO}/${THREE}"
