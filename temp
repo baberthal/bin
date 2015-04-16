@@ -1,0 +1,32 @@
+#! /bin/zsh
+USER='j.morgan.lieberthal@gmail.com'
+PASS='kbner7xL'
+MINUTE=$(date +%M)
+SECOND=$(date +%S)
+((MIN=${MINUTE} % 5))
+OLD_TEMP=`cat /Users/morgan/bin/curtemp.txt`
+
+if [[ $1 = "-o" ]]; then
+  MIN=0
+  SECOND=0
+fi
+
+if [[ $MIN == 0 && $SECOND -le 5 ]]; then
+  OUT_TEMP=`weathermajig Denver | sed 's/\[//g' | sed 's/\]//g' \
+    | sed 's/F//g' | awk '{print $1"  " $NF}'`
+  TEMP=`nest.py --user $USER --password $PASS curtemp`
+  if [ $? -eq 1 ]; then
+    TEMP=$OLD_TEMP
+  fi
+else
+  OUT_TEMP=`cat /Users/morgan/bin/outtemp.txt`
+  TEMP=$OLD_TEMP
+fi
+
+echo -e "\u2600  ${TEMP}\u00b0 || ${OUT_TEMP}"
+
+echo "${OUT_TEMP}" > /Users/morgan/bin/outtemp.txt
+
+if [[ $MIN == 0 ]]; then
+  echo ${TEMP} > /Users/morgan/bin/curtemp.txt
+fi

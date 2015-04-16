@@ -1,0 +1,1 @@
+/Users/morgan/tmuxinator/completion/tmuxinator.zsh
