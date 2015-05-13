@@ -4,4 +4,4 @@ CPU_1=`/Users/morgan/bin/smcutil -r MlC1| awk 'BEGIN {FS="."}{print $1}'`
 CPU_2=`/Users/morgan/bin/smcutil -r MlC2| awk 'BEGIN {FS="."}{print $1}'`
 CPU_3=`/Users/morgan/bin/smcutil -r MlC3| awk 'BEGIN {FS="."}{print $1}'`
 
-echo -e "\u23E3  ${CPU_0}x/${CPU_1}x/${CPU_2}x/${CPU_3}x"
+echo -e "\u226a ${CPU_0}x/${CPU_1}x/${CPU_2}x/${CPU_3}x"

@@ -9,7 +9,7 @@
 TERM_APP='/Applications/Terminal.app'
 BREW_EXEC='/usr/local/bin/brew'
 TERMINAL_NOTIFIER=`which terminal-notifier`
-NOTIF_ARGS="-execute 'brew upgrade'"
+NOTIF_ARGS="-execute '/usr/local/bin/brew upgrade --all'"
 BREW_ICON="/Users/morgan/Documents/brew.png"
 
 $BREW_EXEC update 2>&1 > /dev/null

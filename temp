@@ -23,8 +23,7 @@ else
   TEMP=$OLD_TEMP
 fi
 
-echo -e "\u2600  ${TEMP}\u00b0 || ${OUT_TEMP}"
-
+printf "\xF0\x9F\x9A\xAA  ${TEMP}\u00b0 || ${OUT_TEMP}"
 echo "${OUT_TEMP}" > /Users/morgan/bin/outtemp.txt
 
 if [[ $MIN == 0 ]]; then
