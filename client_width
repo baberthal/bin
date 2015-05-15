@@ -1,0 +1,9 @@
+#!/bin/zsh
+
+width=`tmux display-message -p '#{client_width}'`
+
+if [[ $width -gt 200 ]]; then
+  return 0
+else
+  return 1
+fi
