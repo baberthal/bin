@@ -6,9 +6,11 @@
 # Requires: terminal-notifier. Install with:
 #   brew install terminal-notifier
 
-TERM_APP='/Applications/Terminal.app'
+TERM_APP='/Applications/iTerm.app'
 BREW_EXEC='/usr/local/bin/brew'
-TERMINAL_NOTIFIER=`which terminal-notifier`
+GROWL_NOTIFY=`which growlnotify`
+GROWL_TITLE="Homebrew Update(s) Available"
+GROWL_ARGS="-n Homebrew -a $TERM_APP -d $GROWL_NOTIFY -a $BREW_EXEC"
 NOTIF_ARGS="-execute '/usr/local/bin/brew upgrade --all'"
 BREW_ICON="/Users/morgan/Documents/brew.png"
 
@@ -20,18 +22,15 @@ pinned=`$BREW_EXEC list --pinned`
 outdated=`comm -1 -3 <(echo "$pinned") <(echo "$outdated")`
 
 if [ -z "$outdated" ] ; then
-    if [ -e $TERMINAL_NOTIFIER ]; then
+    if [ -e $GROWL_NOTIFY ]; then
         # No updates available
-        $TERMINAL_NOTIFIER $NOTIF_ARGS \
-            -title "No Homebrew Updates Available" \
-            -message "No updates available yet for any homebrew packages." \
-            -appIcon $BREW_ICON
+        $GROWL_NOTIFY $GROWL_ARGS -m '' -t "No Homebrew Updates Available"
     fi
 else
     # We've got an outdated formula or two
 
     # Nofity via Notification Center
-    if [ -e $TERMINAL_NOTIFIER ]; then
+    if [ -e $GROWL_NOTIFY ]; then
         lc=$((`echo "$outdated" | wc -l`))
         outdated=`echo "$outdated" | tail -$lc`
         message=`echo "$outdated" | head -5`
@@ -43,8 +42,6 @@ $message"
 $message"
         fi
         # Send to the Nofication Center
-        $TERMINAL_NOTIFIER $NOTIF_ARGS \
-            -title "Homebrew Update(s) Available" -message "$message" \
-            -appIcon $BREW_ICON
+        echo "$message" | $GROWL_NOTIFY $GROWL_ARGS -s -t $GROWL_TITLE
     fi
 fi
