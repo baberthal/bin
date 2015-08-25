@@ -3,4 +3,3 @@
 RVM_PROMPT=`~/.rvm/bin/rvm-prompt v`
 
 echo -e "\xF0\x9f\x92\x8e  ${RVM_PROMPT}"
-
