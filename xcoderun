@@ -1,0 +1,237 @@
+#!/usr/bin/env ruby
+require 'open3'
+require 'fileutils'
+require 'colorize'
+
+# stdin, stdout, status = Open3.capture3("ls")
+
+module XCodeRun# {{{
+  def self.run args
+    opts = RuntimeFlags.new
+    runner = Runner.new(opts.args_hash)
+    runner.run
+  end
+
+  class Runner# {{{
+    def initialize options = {}
+      @opts = options
+      @xcode_args = filter_xcode options
+      unless File.directory? options[:temp_dir]
+        FileUtils.mkdir_p(options[:temp_dir])
+      end
+      @tmp_file = "#{options[:temp_dir]}/cc-tmp.json"
+      @log_file = options[:log_file]
+      @last_exit_status = 0
+    end
+
+    def filter_xcode opts_hash
+      available_args = [:project, :sdk, :workspace, :scheme]
+      opts_hash.select { |k,v| available_args.include? k }
+    end
+
+    def format_keys opts_hash
+      formatted = []
+      opts_hash.each do |key, value|
+        formatted.push "-#{key}", value
+      end
+      formatted
+    end
+
+    def update_compilation_db
+      puts "Updating compilation database...".colorize(:blue)
+
+      unless command_failed?
+        Open3.popen3("oclint-xcodebuild -o #{@tmp_file} #{@log_file}") do |stdin, stdout, stderr, thread|
+          while line=stderr.gets do
+            puts line.colorize(:red)
+          end
+          puts stdout.read.colorize(:blue)
+        end
+      end
+
+      puts "New temp database updated. Running the node merger script"
+
+      unless command_failed?
+        Open3.popen3("node ~/bin/clang_compilation_db_merger.js #{@tmp_file} #{ @opts[:compile_commands] }") do |stdin, stdout, stderr, thread|
+          while line=stderr.gets do
+            puts line
+          end
+          puts stdout.read.to_s.colorize(:light_blue)
+        end
+      end
+      unless command_failed?
+        puts "Done.".colorize(:blue)
+      end
+    end
+
+    def perl_one_liners
+      unless command_failed?
+        puts "Removing unwanted flags to keep YCM happy..."
+
+        [ "perl -i -ple 's/--serialize-diagnostics \S* //g' #{@opts[:compile_commands]}",
+          "perl -i -ple 's/(-MMD |-MT dependencies |-MF \S* |)//g' #{@opts[:compile_commands]}",
+          "perl -i -ple 's/(-iquote|-I|-F)\s*\S*DerivedData\S* (?<!hmap )//g' #{@opts[:compile_commands]}"
+        ].each do |one_liner|
+          Open3.popen3(one_liner) do |stdin, stdout, stderr, thread|
+            while line=stderr.gets do
+              puts line.colorize(:red)
+            end
+          end
+        end
+      end
+    end
+
+    def xcodebuild_run
+      [ "xcodebuild #{format_keys(@xcode_args).join(" ")} | tee -a #{@log_file} | xcpretty -c",
+        "oclint-xcodebuild #{@log_file}"
+      ].each do |step|
+        puts "running ".colorize(:green) + "#{step}".colorize(:blue)
+        Open3.popen3(step) do |stdin, stdout, stderr, thread|
+          while line=stderr.gets do
+            puts line.colorize(:red)
+          end
+          puts stdout.read
+        end
+      end
+    end
+
+    def run
+      xcodebuild_run
+      build_success?
+      update_compilation_db
+      perl_one_liners
+      find_available_targets
+    end
+
+    def command_failed?
+      false
+    end
+
+    def build_success?
+      unless command_failed?
+        puts "Build Successful...".colorize(:green)
+      else
+        puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!".colorize(:red)
+        puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!".colorize(:red)
+        puts "!!!!!!!!!!!!!!!!!!!!!!  SCARY ERROR - XCODE BUILD FAILED  !!!!!!!!!!!!!!!!!!!!!!".colorize(:red)
+        puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!".colorize(:red)
+        puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!".colorize(:red)
+        puts "Check the above messages to figure out what went wrong...".colorize(:light_red)
+      end
+    end
+
+    def runnable? target
+      File.exist? target and File.executable? target and not File.directory? target
+    end
+
+    def find_available_targets
+      available = Dir['build/Release/**/*'].keep_if { |f| runnable? f }
+
+      puts "Searching for targets...".colorize(:blue)
+      if available.length == 0
+        puts "No targets found".colorize(:yellow)
+        return
+      elsif available.length == 1
+        target = available.first
+        puts "Found ".colorize(:green) + "#{target}.".colorize(:blue)
+      else
+        target = target_select available
+      end
+      puts "Running target...\n\n".colorize :blue
+      execute_target target
+    end
+
+    def execute_target target
+      Open3.popen3("./#{target}") do |stdin, stdout, stderr, thread|
+        while line=stderr.gets do
+          puts line.colorize(:cyan)
+        end
+        puts stdout.read.colorize(:cyan)
+      end
+    end
+
+    def target_select list_of_targets
+      puts "Multiple targets found. Please select one by entering the number you see on the left.".colorize(:yellow)
+      list_of_targets.each_with_index do |target, index|
+        puts "#{index} -- " + " #{File.basename target} ".colorize(:blue) + " -- " + "#{File.path target}".colorize(:cyan)
+      end
+      selection = gets.chomp!
+      list_of_targets[selection.to_i]
+    end
+  end# }}}
+
+  class RuntimeFlags# {{{
+    attr_reader :flags, :args_hash
+    def initialize *args
+      @flags = {
+        "-p" => "--project",
+        "-w" => "--workspace",
+        "-s" => "--scheme",
+        "-sdk" => "--sdk",
+        "-t" => "--temp-dir",
+        "-cc" => "--compile-commands",
+        "-l" => "--log-file"
+      }
+
+      @args_hash = {
+        sdk: 'macosx10.10',
+        temp_dir: '.tmp',
+        compile_commands: 'compile_commands.json',
+        log_file: 'xcodebuild.log'
+      }
+
+      hashify_args args
+    end
+
+    def hashify_args args
+      while args.length > 0
+        arg_pair = args.shift(2)
+
+        if valid_flag? arg_pair[0]
+          temp = { fetch_arg(arg_pair[0]) => arg_pair[1] }
+          @args_hash.merge!(temp)
+        else
+          puts "#{arg_pair[0]} is not valid"
+        end
+      end
+    end
+
+    private
+
+    def short_flag? current_arg
+      @flags.key? current_arg
+    end
+
+    def full_flag? current_arg
+      @flags.value? current_arg
+    end
+
+    def valid_flag? current_arg
+      short_flag?(current_arg) or full_flag?(current_arg)
+    end
+
+    def to_snake string
+      drop_dashes string
+      string.gsub('-', '_')
+    end
+
+    def drop_dashes string
+      case string[0,2]
+      when "--" then string[0,2] = ''
+      else string[0] = ''
+      end
+      string
+    end
+
+    def fetch_arg string
+      if full_flag? string
+        to_snake(string).to_sym
+      else
+        to_snake(@flags[string]).to_sym
+      end
+    end
+
+  end# }}}
+end# }}}
+
+XCodeRun.run ARGV
