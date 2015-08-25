@@ -1,0 +1,3 @@
+[submodule "brew_notify"]
+	path = brew_notify
+	url = ./brew_notify
