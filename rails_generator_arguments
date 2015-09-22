@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+require 'rails/generators'
+
+def collect_values(hash)
+  return_array = []
+  hash.each_value { |v| return_array << v }
+  return_array.flatten!
+  puts return_array
+end
+
+collect_values(Rails::Generators.sorted_groups.to_h)

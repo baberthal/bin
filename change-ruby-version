@@ -1,0 +1,46 @@
+#!/usr/bin/env zsh
+
+HELP_MESSAGE="""
+------------------ change-ruby-version ------------------
+USAGE:
+change-ruby-version [-h] [START_DIRECTORY] [OLD_RUBY_VERSION NEW_RUBY_VERSION]
+
+WHERE:
+START_DIRECTORY is the directory to search for .ruby-version files
+OLD_RUBY_VERSION is the old ruby version (i.e. 2.2.2)
+NEW_RUBY_VERSION is the new ruby version (i.e. 2.2.3)
+
+FLAGS:
+-h  print this message and exit
+
+"""
+
+if [[ $1 ]]; then
+  START_DIR=$1
+else
+  START_DIR='.'
+fi
+
+if [[ $2 && $3 ]]; then
+  OLD_VERSION=$2
+  NEW_VERSION=$3
+elif [[ ($2 && !$3 || $3 && !$2) ]]; then
+  echo $HELP_MESSAGE
+  exit 1
+else
+  OLD_VERSION='2.2.2'
+  NEW_VERSION='2.2.3'
+fi
+
+if [[ $1 == '-h' ]]; then
+  echo $HELP_MESSAGE
+  exit 1
+fi
+
+for rvm_file in `find ${START_DIR} -name .ruby-version`; do
+  if [[ `cat $rvm_file` =~ $OLD_VERSION ]]; then
+    echo $rvm_file
+    echo "ruby-${NEW_VERSION}" > $rvm_file
+  fi
+done
+exit 0
